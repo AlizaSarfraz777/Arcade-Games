@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOOPLAND — an arcade of small worlds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#120d29;
+    --bg-alt:#1b1440;
+    --surface:#211a4a;
+    --surface-2:#2a2160;
+    --line: rgba(182,174,224,0.16);
+    --text:#f2eefc;
+    --text-dim:#a79cd6;
+    --neon-cyan:#00f0c8;
+    --neon-pink:#ff2e93;
+    --neon-yellow:#ffd23f;
+    --neon-lavender:#b28dff;
+    --neon-green:#5cff9d;
+    --neon-orange:#ff8a3d;
+    --danger:#ff5c5c;
+    --font-display:'Press Start 2P', monospace;
+    --font-body:'Space Grotesk', sans-serif;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(0,240,200,0.10), transparent 60%),
+      radial-gradient(ellipse 800px 500px at 100% 0%, rgba(255,46,147,0.10), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100vh;
+  }
+  button{font-family:inherit;cursor:pointer;}
+  :focus-visible{outline:2px solid var(--neon-cyan); outline-offset:2px;}
+  a{color:inherit;}
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 28px;
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:20;
+    background:rgba(18,13,41,0.85);
+    backdrop-filter:blur(8px);
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-size:13px; letter-spacing:1px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--neon-cyan); box-shadow:0 0 10px var(--neon-cyan);}
+  .progress-pill{
+    font-size:12px; color:var(--text-dim); border:1px solid var(--line); padding:8px 14px; border-radius:999px;
+    background:var(--surface);
+  }
+  .progress-pill strong{color:var(--neon-yellow); font-weight:700;}
+
+  /* ---------- screens ---------- */
+  .screen{display:none; animation:fadeIn .35s ease;}
+  .screen.active{display:block;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:64px 28px 40px;
+    text-align:center;
+    max-width:900px; margin:0 auto;
+  }
+  .marquee{
+    font-family:var(--font-display);
+    font-size:clamp(22px, 5vw, 42px);
+    line-height:1.5;
+    letter-spacing:2px;
+    color:var(--neon-yellow);
+    text-shadow:0 0 6px rgba(255,210,63,0.7), 0 0 22px rgba(255,210,63,0.35);
+    animation:flicker 4.5s infinite;
+  }
+  @media (prefers-reduced-motion: reduce){ .marquee{animation:none;} }
+  @keyframes flicker{
+    0%,19%,21%,23%,80%,100%{opacity:1;}
+    20%,22%,24%,79%{opacity:0.72;}
+  }
+  .hero p{
+    color:var(--text-dim); font-size:16px; line-height:1.6; max-width:560px; margin:18px auto 0;
+  }
+  .hero .tape{
+    display:inline-flex; gap:8px; margin-top:22px; flex-wrap:wrap; justify-content:center;
+  }
+  .tape span{
+    font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim);
+    border:1px dashed var(--line); padding:6px 12px; border-radius:999px;
+  }
+
+  /* ---------- game grid ---------- */
+  .grid{
+    max-width:1180px; margin:0 auto; padding:10px 28px 80px;
+    display:grid; gap:22px;
+    grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .card{
+    --accent:var(--neon-cyan);
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    display:flex; flex-direction:column;
+    transition:transform .18s ease, border-color .18s ease;
+  }
+  .card:hover{ transform:translateY(-4px); border-color:var(--accent); }
+  .card[data-color="cyan"]{--accent:var(--neon-cyan);}
+  .card[data-color="yellow"]{--accent:var(--neon-yellow);}
+  .card[data-color="pink"]{--accent:var(--neon-pink);}
+  .card[data-color="lavender"]{--accent:var(--neon-lavender);}
+  .card[data-color="green"]{--accent:var(--neon-green);}
+  .card[data-color="orange"]{--accent:var(--neon-orange);}
+  .card-strip{
+    height:6px; width:100%;
+    background:var(--accent);
+    box-shadow:0 0 12px var(--accent);
+  }
+  .card-body{ padding:22px 22px 20px; display:flex; flex-direction:column; gap:12px; flex:1;}
+  .card-top{display:flex; align-items:center; gap:12px;}
+  .card-icon{
+    font-size:26px; width:48px; height:48px; display:flex; align-items:center; justify-content:center;
+    background:var(--bg-alt); border-radius:10px; border:1px solid var(--line);
+  }
+  .card-title{font-weight:700; font-size:18px;}
+  .card-tagline{color:var(--text-dim); font-size:14px; line-height:1.5; flex:1;}
+  .card-tags{display:flex; gap:6px; flex-wrap:wrap;}
+  .tag{font-size:10px; letter-spacing:.5px; text-transform:uppercase; padding:4px 9px; border-radius:999px; background:var(--bg-alt); color:var(--text-dim); border:1px solid var(--line);}
+  .card-foot{display:flex; align-items:center; justify-content:space-between; margin-top:6px;}
+  .stars{font-size:13px; color:var(--accent); letter-spacing:1px;}
+  .play-btn{
+    font-family:var(--font-display); font-size:10px; letter-spacing:1px;
+    color:var(--bg); background:var(--accent); border:none; padding:11px 16px; border-radius:8px;
+    box-shadow:0 0 14px var(--accent);
+  }
+  .play-btn:hover{filter:brightness(1.1);}
+
+  /* ---------- game screen ---------- */
+  .game-header{
+    display:flex; align-items:center; gap:16px; padding:18px 28px; border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .back-btn{
+    background:var(--surface); border:1px solid var(--line); color:var(--text); padding:9px 14px; border-radius:8px; font-size:14px;
+  }
+  .back-btn:hover{border-color:var(--neon-cyan);}
+  .game-title-wrap{display:flex; align-items:center; gap:10px;}
+  .game-title{font-weight:700; font-size:20px;}
+  .game-sub{color:var(--text-dim); font-size:13px;}
+
+  .level-bar{
+    display:flex; gap:10px; padding:16px 28px; flex-wrap:wrap; border-bottom:1px solid var(--line);
+    align-items:center;
+  }
+  .level-bar span.label{color:var(--text-dim); font-size:12px; letter-spacing:1px; text-transform:uppercase; margin-right:6px;}
+  .level-token{
+    width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:var(--surface);
+    color:var(--text); font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center;
+  }
+  .level-token.locked{color:var(--text-dim); opacity:.5; cursor:not-allowed;}
+  .level-token.unlocked:hover{border-color:var(--accent-current, var(--neon-cyan));}
+  .level-token.current{background:var(--accent-current, var(--neon-cyan)); color:var(--bg); box-shadow:0 0 12px var(--accent-current, var(--neon-cyan));}
+
+  .stage-wrap{ max-width:760px; margin:0 auto; padding:30px 20px 70px; }
+  .game-hud{
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+    font-family:var(--font-display); font-size:12px; color:var(--neon-yellow);
+    background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin-bottom:20px;
+  }
+
+  /* memory match */
+  .memory-grid{ display:grid; grid-template-columns:repeat(var(--cols,4), minmax(0,1fr)); gap:8px; }
+  .mm-card{
+    aspect-ratio:1; border-radius:8px; border:1px solid var(--line); background:var(--surface-2);
+    position:relative; perspective:600px;
+  }
+  .mm-face{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:22px;
+    border-radius:8px; backface-visibility:hidden; transition:transform .35s ease; }
+  .mm-front{ background:var(--bg-alt); }
+  .mm-back{ background:var(--surface-2); transform:rotateY(180deg); }
+  .mm-card.flipped .mm-front{ transform:rotateY(180deg); }
+  .mm-card.flipped .mm-back{ transform:rotateY(0deg); }
+  .mm-card.matched{ opacity:.45; }
+
+  /* whack a mole */
+  .whack-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .wm-hole{
+    aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 50% 30%, #3a3170, var(--bg-alt));
+    border:1px solid var(--line); position:relative; overflow:hidden;
+  }
+  .wm-mole{
+    position:absolute; left:50%; bottom:-60%; transform:translateX(-50%); font-size:34px;
+    transition:bottom .12s ease;
+  }
+  .wm-hole.up .wm-mole{ bottom:10%; }
+
+  /* math blitz */
+  .math-stage{ display:flex; flex-direction:column; align-items:center; gap:22px; padding:20px 0; }
+  .math-question{ font-family:var(--font-display); font-size:clamp(22px,6vw,32px); color:var(--neon-pink); text-shadow:0 0 14px rgba(255,46,147,.4); }
+  .math-options{ display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:360px; }
+  .math-opt{ padding:16px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-size:18px; font-weight:600; }
+  .math-opt:hover{ border-color:var(--neon-pink); }
+  .math-opt.correct{ background:var(--neon-green); color:var(--bg); border-color:var(--neon-green); }
+  .math-opt.wrong{ background:var(--danger); color:var(--bg); border-color:var(--danger); }
+
+  /* word scramble */
+  .word-stage{ display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px 0; text-align:center; }
+  .word-scrambled{ font-family:var(--font-display); font-size:clamp(20px,6vw,30px); letter-spacing:6px; color:var(--neon-lavender); text-shadow:0 0 14px rgba(178,141,255,.45); }
+  .word-input{
+    width:100%; max-width:320px; padding:14px 16px; border-radius:10px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); font-size:16px; text-align:center;
+  }
+  .word-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .btn-primary{ background:var(--neon-lavender); color:var(--bg); border:none; padding:12px 20px; border-radius:8px; font-weight:700; box-shadow:0 0 12px var(--neon-lavender); }
+  .btn-ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--line); padding:12px 16px; border-radius:8px; }
+  .word-feedback{ min-height:20px; font-size:14px; }
+  .word-feedback.good{ color:var(--neon-green); }
+  .word-feedback.bad{ color:var(--danger); }
+  .word-feedback.hint{ color:var(--neon-yellow); }
+
+  /* snake */
+  .snake-wrap{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+  #sn-canvas{ background:var(--bg-alt); border:1px solid var(--line); border-radius:10px; max-width:100%; image-rendering:pixelated; }
+  .snake-touch{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .snake-touch-row{ display:flex; gap:44px; }
+  .snake-touch button{ width:52px; height:52px; border-radius:10px; background:var(--surface); border:1px solid var(--line); color:var(--text); font-size:18px; }
+  .snake-touch button:hover{ border-color:var(--neon-green); }
+
+  /* reaction */
+  .rx-pad{
+    width:100%; max-width:360px; aspect-ratio:16/9; margin:0 auto; display:flex; align-items:center; justify-content:center;
+    border-radius:14px; border:none; font-family:var(--font-display); font-size:14px; color:var(--bg);
+  }
+  .rx-wait{ background:var(--surface-2); color:var(--text-dim); border:1px dashed var(--line); }
+  .rx-go{ background:var(--neon-green); box-shadow:0 0 24px var(--neon-green); }
+
+  /* instructions */
+  .instructions{ margin-top:26px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; color:var(--text-dim); font-size:13px; line-height:1.6; }
+  .instructions strong{ color:var(--text); }
+
+  /* overlay */
+  .overlay{
+    position:fixed; inset:0; background:rgba(9,6,20,0.78); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .overlay.hidden{ display:none; }
+  .modal{
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:16px; padding:32px 30px; max-width:380px; width:100%;
+    text-align:center;
+  }
+  .modal h3{ font-family:var(--font-display); font-size:16px; margin:0 0 14px; }
+  .modal h3.win{ color:var(--neon-green); text-shadow:0 0 12px rgba(92,255,157,.4); }
+  .modal h3.lose{ color:var(--neon-pink); text-shadow:0 0 12px rgba(255,46,147,.4); }
+  .modal p{ color:var(--text-dim); font-size:14px; margin:0 0 22px; line-height:1.5; }
+  .modal-actions{ display:flex; flex-direction:column; gap:10px; }
+  .modal-actions button{ padding:13px; border-radius:9px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; }
+  .modal-actions .primary{ background:var(--neon-cyan); color:var(--bg); border:none; box-shadow:0 0 14px var(--neon-cyan); }
+
+  .footer-note{ text-align:center; color:var(--text-dim); font-size:12px; padding:30px 20px 50px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span> LOOPLAND ARCADE</div>
+  <div class="progress-pill">Cleared <strong id="progress-count">0</strong> / <span id="progress-total">30</span> levels</div>
+</header>
+
+<main id="hub-screen" class="screen active">
+  <section class="hero">
+    <h1 class="marquee">SIX GAMES.<br>FIVE LEVELS EACH.<br>ONE ARCADE.</h1>
+    <p>Pick a cabinet below. Every game starts easy and ramps up round after round — built for quick play whether you're 6, 16, or 60.</p>
+    <div class="tape">
+      <span>Kids</span><span>Teens</span><span>Adults</span><span>All Ages</span>
+    </div>
+  </section>
+  <section class="grid" id="game-grid"></section>
+  <p class="footer-note">Your progress is saved on this device, so you can pick up where you left off.</p>
+</main>
+
+<main id="game-screen" class="screen">
+  <div class="game-header">
+    <button class="back-btn" id="back-to-hub">← All games</button>
+    <div class="game-title-wrap">
+      <span id="game-icon" style="font-size:22px;"></span>
+      <div>
+        <div class="game-title" id="game-title"></div>
+        <div class="game-sub" id="game-sub"></div>
+      </div>
+    </div>
+  </div>
+  <div class="level-bar">
+    <span class="label">Level</span>
+    <div id="level-tokens" style="display:flex; gap:10px;"></div>
+  </div>
+  <div class="stage-wrap">
+    <div id="stage"></div>
+    <div class="instructions" id="instructions"></div>
+  </div>
+</main>
+
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <p id="modal-message"></p>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<script>
+/* ---------------- utilities ---------------- */
+function qs(sel, root=document){ return root.querySelector(sel); }
+function qsa(sel, root=document){ return [...root.querySelectorAll(sel)]; }
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=randInt(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+const PROGRESS_KEY='loopland_progress_v1';
+function loadProgress(){ try{ return JSON.parse(localStorage.getItem(PROGRESS_KEY))||{}; }catch(e){ return {}; } }
+function saveProgress(p){ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }
+function getUnlocked(gameId){ return loadProgress()[gameId]||1; }
+function unlockNext(gameId, level){
+  const p=loadProgress(); const cur=p[gameId]||1;
+  if(level+1>cur) p[gameId]=Math.min(level+1,5);
+  saveProgress(p);
+  renderProgressPill();
+}
+function renderProgressPill(){
+  const p=loadProgress();
+  let cleared=0;
+  GAMES.forEach(g=>{ cleared += Math.max(0,(p[g.id]||1)-1); });
+  qs('#progress-count').textContent=cleared;
+  qs('#progress-total').textContent=GAMES.length*5;
+}
+
+/* ---------------- game definitions ---------------- */
+const GAMES=[
+  { id:'memory', name:'Mind Match', tagline:'Flip cards, remember the pairs, and clear the board before time runs out.',
+    audience:['Kids','All ages'], icon:'🧠', color:'cyan', init:initMemory,
+    instructions:'Tap two cards to flip them. Matching pairs stay revealed. Clear every pair before the timer hits zero.' },
+  { id:'whack', name:'Hammer Time', tagline:'Whack the critters as they pop up. They get faster with every level.',
+    audience:['Kids'], icon:'🔨', color:'yellow', init:initWhack,
+    instructions:'Click a hole the instant a critter pops up. Hit your target score before the round timer runs out.' },
+  { id:'math', name:'Math Blitz', tagline:'Race the clock through sums, times tables, and mixed operations.',
+    audience:['Kids','Teens'], icon:'➗', color:'pink', init:initMath,
+    instructions:'Pick the correct answer from four options as fast as you can. Reach the target score before time runs out.' },
+  { id:'word', name:'Word Twist', tagline:'Unscramble words that get longer and trickier every level.',
+    audience:['Teens','Adults'], icon:'🔤', color:'lavender', init:initWord,
+    instructions:'Type the real word hiding in the scrambled letters. Use a hint if you get stuck — it reveals one letter. Get at least 4 of 5 right to pass.' },
+  { id:'snake', name:'Neon Serpent', tagline:'Classic snake with rising speed, deadly walls, and obstacles.',
+    audience:['All ages'], icon:'🐍', color:'green', init:initSnake,
+    instructions:'Steer with arrow keys, WASD, or the on-screen buttons. Eat enough food to hit the target without crashing.' },
+  { id:'reaction', name:'Flash Reflex', tagline:'Test how fast your reflexes really are, round after round.',
+    audience:['Teens','Adults'], icon:'⚡', color:'orange', init:initReaction,
+    instructions:'Wait for the pad to turn green, then click as fast as possible. Clicking too early restarts the round. Beat the average time target to pass.' },
+];
+const COLOR_VARS={ cyan:'--neon-cyan', yellow:'--neon-yellow', pink:'--neon-pink', lavender:'--neon-lavender', green:'--neon-green', orange:'--neon-orange' };
+
+/* ---------------- hub rendering ---------------- */
+function renderHub(){
+  const grid=qs('#game-grid');
+  grid.innerHTML='';
+  GAMES.forEach(g=>{
+    const unlocked=getUnlocked(g.id);
+    const card=document.createElement('div');
+    card.className='card';
+    card.dataset.color=g.color;
+    card.innerHTML=`
+      <div class="card-strip"></div>
+      <div class="card-body">
+        <div class="card-top">
+          <div class="card-icon">${g.icon}</div>
+          <div class="card-title">${g.name}</div>
+        </div>
+        <div class="card-tagline">${g.tagline}</div>
+        <div class="card-tags">${g.audience.map(a=>`<span class="tag">${a}</span>`).join('')}</div>
+        <div class="card-foot">
+          <span class="stars">${'★'.repeat(unlocked)}${'☆'.repeat(5-unlocked)}</span>
+          <button class="play-btn">${unlocked>1?'CONTINUE':'PLAY'}</button>
+        </div>
+      </div>
+    `;
+    card.querySelector('.play-btn').addEventListener('click', ()=>openGame(g.id));
+    card.addEventListener('click', (e)=>{ if(e.target.tagName!=='BUTTON') openGame(g.id); });
+    grid.appendChild(card);
+  });
+  renderProgressPill();
+}
+
+/* ---------------- navigation ---------------- */
+let currentGame=null, currentLevel=1, currentCleanup=null;
+
+function showScreen(id){
+  qsa('.screen').forEach(s=>s.classList.remove('active'));
+  qs('#'+id).classList.add('active');
+}
+function goHub(){
+  if(currentCleanup){ currentCleanup(); currentCleanup=null; }
+  renderHub();
+  showScreen('hub-screen');
+}
+qs('#back-to-hub').addEventListener('click', goHub);
+
+function openGame(gameId){
+  currentGame=GAMES.find(g=>g.id===gameId);
+  qs('#game-icon').textContent=currentGame.icon;
+  qs('#game-title').textContent=currentGame.name;
+  qs('#game-sub').textContent=currentGame.tagline;
+  qs('#instructions').innerHTML=`<strong>How to play:</strong> ${currentGame.instructions}`;
+  document.documentElement.style.setProperty('--accent-current', `var(${COLOR_VARS[currentGame.color]})`);
+  renderLevelTokens();
+  const unlocked=getUnlocked(gameId);
+  startLevel(Math.min(unlocked,5));
+  showScreen('game-screen');
+}
+
+function renderLevelTokens(){
+  const wrap=qs('#level-tokens');
+  wrap.innerHTML='';
+  const unlocked=getUnlocked(currentGame.id);
+  for(let lvl=1;lvl<=5;lvl++){
+    const btn=document.createElement('button');
+    const isUnlocked=lvl<=unlocked;
+    btn.className='level-token '+(isUnlocked?'unlocked':'locked')+(lvl===currentLevel?' current':'');
+    btn.textContent=isUnlocked?lvl:'🔒';
+    btn.disabled=!isUnlocked;
+    btn.addEventListener('click', ()=>{ if(isUnlocked) startLevel(lvl); });
+    wrap.appendChild(btn);
+  }
+}
+
+function startLevel(level){
+  if(currentCleanup){ currentCleanup(); currentCleanup=null; }
+  currentLevel=level;
+  renderLevelTokens();
+  const stage=qs('#stage');
+  stage.innerHTML='';
+  currentCleanup = currentGame.init(stage, level, (success, message)=>onLevelFinish(success, message)) || null;
+}
+
+function onLevelFinish(success, message){
+  if(currentCleanup){ currentCleanup(); currentCleanup=null; }
+  if(success) unlockNext(currentGame.id, currentLevel);
+  renderLevelTokens();
+  showModal(success, message);
+}
+
+function showModal(success, message){
+  const overlay=qs('#overlay');
+  const title=qs('#modal-title');
+  const msg=qs('#modal-message');
+  const actions=qs('#modal-actions');
+  title.textContent = success ? (currentLevel<5 ? 'Level Clear!' : 'Arcade Master!') : 'Not Quite!';
+  title.className = success ? 'win' : 'lose';
+  msg.textContent = message;
+  actions.innerHTML='';
+
+  if(success && currentLevel<5){
+    const nextBtn=document.createElement('button');
+    nextBtn.className='primary';
+    nextBtn.textContent='Next Level →';
+    nextBtn.onclick=()=>{ hideModal(); startLevel(currentLevel+1); };
+    actions.appendChild(nextBtn);
+  }
+  const retryBtn=document.createElement('button');
+  retryBtn.textContent='Retry Level';
+  retryBtn.onclick=()=>{ hideModal(); startLevel(currentLevel); };
+  actions.appendChild(retryBtn);
+
+  const hubBtn=document.createElement('button');
+  hubBtn.textContent='Back to Arcade';
+  hubBtn.onclick=()=>{ hideModal(); goHub(); };
+  actions.appendChild(hubBtn);
+
+  overlay.classList.remove('hidden');
+}
+function hideModal(){ qs('#overlay').classList.add('hidden'); }
+
+/* ================= GAME 1: MEMORY MATCH ================= */
+function initMemory(container, level, finish){
+  const configs=[{pairs:6,time:60},{pairs:8,time:55},{pairs:10,time:50},{pairs:12,time:45},{pairs:15,time:40}];
+  const cfg=configs[level-1];
+  const symbols=['🎮','🍕','🚀','🐶','🎲','🍎','🌟','🎧','🐱','🍩','🚗','⚽','🎨','🐸','🍉'];
+  const chosen=symbols.slice(0,cfg.pairs);
+  const deck=shuffle([...chosen,...chosen]);
+  const cols=Math.ceil(Math.sqrt(deck.length*1.4));
+  container.innerHTML=`
+    <div class="game-hud">
+      <div>⏱ <span id="mm-timer">${cfg.time}</span>s</div>
+      <div>Pairs left: <span id="mm-left">${cfg.pairs}</span></div>
+    </div>
+    <div class="memory-grid" id="mm-grid" style="--cols:${cols}"></div>
+  `;
+  const grid=qs('#mm-grid', container);
+  deck.forEach(sym=>{
+    const card=document.createElement('button');
+    card.className='mm-card';
+    card.dataset.sym=sym;
+    card.innerHTML=`<span class="mm-face mm-front">❓</span><span class="mm-face mm-back">${sym}</span>`;
+    grid.appendChild(card);
+  });
+  let first=null, lock=false, left=cfg.pairs, timeLeft=cfg.time;
+  const timerEl=qs('#mm-timer', container), leftEl=qs('#mm-left', container);
+  const timer=setInterval(()=>{
+    timeLeft--; timerEl.textContent=timeLeft;
+    if(timeLeft<=0){ clearInterval(timer); finish(false,'Time ran out before you cleared the board. Give it another shot!'); }
+  },1000);
+  grid.addEventListener('click', e=>{
+    const card=e.target.closest('.mm-card');
+    if(!card||lock||card===first||card.classList.contains('matched')) return;
+    card.classList.add('flipped');
+    if(!first){ first=card; return; }
+    lock=true;
+    if(first.dataset.sym===card.dataset.sym){
+      first.classList.add('matched'); card.classList.add('matched');
+      left--; leftEl.textContent=left; first=null; lock=false;
+      if(left<=0){ clearInterval(timer); finish(true, `Board cleared with ${timeLeft}s to spare!`); }
+    } else {
+      setTimeout(()=>{ first.classList.remove('flipped'); card.classList.remove('flipped'); first=null; lock=false; },700);
+    }
+  });
+  return ()=>clearInterval(timer);
+}
+
+/* ================= GAME 2: WHACK-A-MOLE ================= */
+function initWhack(container, level, finish){
+  const configs=[{show:900,target:10},{show:750,target:14},{show:600,target:18},{show:450,target:22},{show:350,target:26}];
+  const cfg=configs[level-1];
+  const roundTime=30;
+  container.innerHTML=`
+    <div class="game-hud"><div>⏱ <span id="wm-timer">${roundTime}</span>s</div><div>Score: <span id="wm-score">0</span> / ${cfg.target}</div></div>
+    <div class="whack-grid" id="wm-grid"></div>
+  `;
+  const grid=qs('#wm-grid', container);
+  const holes=[];
+  for(let i=0;i<9;i++){
+    const hole=document.createElement('button');
+    hole.className='wm-hole';
+    hole.innerHTML='<span class="wm-mole">🐹</span>';
+    grid.appendChild(hole);
+    holes.push(hole);
+  }
+  let score=0, timeLeft=roundTime, activeHole=null, moleTimeout=null, ended=false;
+  const scoreEl=qs('#wm-score', container), timerEl=qs('#wm-timer', container);
+  function popMole(){
+    if(activeHole) activeHole.classList.remove('up');
+    activeHole=holes[randInt(0,holes.length-1)];
+    activeHole.classList.add('up');
+    moleTimeout=setTimeout(popMole, cfg.show);
+  }
+  grid.addEventListener('click', e=>{
+    const hole=e.target.closest('.wm-hole');
+    if(ended || !hole || hole!==activeHole || !hole.classList.contains('up')) return;
+    score++; scoreEl.textContent=score;
+    hole.classList.remove('up'); activeHole=null;
+    if(score>=cfg.target){ end(true, `Cleared the target with ${timeLeft}s to spare!`); }
+  });
+  popMole();
+  const timer=setInterval(()=>{
+    timeLeft--; timerEl.textContent=timeLeft;
+    if(timeLeft<=0) end(score>=cfg.target, score>=cfg.target?'Level clear!':`Time's up — only ${score}/${cfg.target}. Try again!`);
+  },1000);
+  function end(success,message){ if(ended) return; ended=true; clearInterval(timer); clearTimeout(moleTimeout); finish(success,message); }
+  return ()=>{ clearInterval(timer); clearTimeout(moleTimeout); ended=true; };
+}
+
+/* ================= GAME 3: MATH BLITZ ================= */
+function genQuestion(level){
+  let a,b,op,answer,text;
+  if(level===1){ a=randInt(1,10); b=randInt(1,10); op=Math.random()<0.5?'+':'-'; if(op==='-'&&b>a){[a,b]=[b,a];} answer=op==='+'?a+b:a-b; text=`${a} ${op} ${b}`; }
+  else if(level===2){ a=randInt(10,50); b=randInt(1,50); op=Math.random()<0.5?'+':'-'; if(op==='-'&&b>a){[a,b]=[b,a];} answer=op==='+'?a+b:a-b; text=`${a} ${op} ${b}`; }
+  else if(level===3){ a=randInt(1,10); b=randInt(1,10); answer=a*b; text=`${a} × ${b}`; }
+  else if(level===4){ op=Math.random()<0.5?'×':'÷'; if(op==='×'){ a=randInt(2,12); b=randInt(2,12); answer=a*b; text=`${a} × ${b}`; } else { b=randInt(2,12); answer=randInt(2,12); a=b*answer; text=`${a} ÷ ${b}`; } }
+  else { const ops=['+','-','×','÷']; op=ops[randInt(0,3)];
+    if(op==='+'){ a=randInt(10,99); b=randInt(10,99); answer=a+b; }
+    else if(op==='-'){ a=randInt(10,99); b=randInt(10,99); if(b>a){[a,b]=[b,a];} answer=a-b; }
+    else if(op==='×'){ a=randInt(2,20); b=randInt(2,20); answer=a*b; }
+    else { b=randInt(2,12); answer=randInt(2,20); a=b*answer; }
+    text=`${a} ${op} ${b}`;
+  }
+  return {text, answer};
+}
+function initMath(container, level, finish){
+  const configs=[{time:45,target:8},{time:45,target:10},{time:45,target:12},{time:50,target:14},{time:55,target:16}];
+  const cfg=configs[level-1];
+  let score=0, timeLeft=cfg.time, ended=false;
+  container.innerHTML=`
+    <div class="game-hud"><div>⏱ <span id="mb-timer">${timeLeft}</span>s</div><div>Score: <span id="mb-score">0</span> / ${cfg.target}</div></div>
+    <div class="math-stage"><div class="math-question" id="mb-q"></div><div class="math-options" id="mb-opts"></div></div>
+  `;
+  const qEl=qs('#mb-q', container), optsEl=qs('#mb-opts', container), scoreEl=qs('#mb-score', container), timerEl=qs('#mb-timer', container);
+  let current;
+  function nextQuestion(){
+    current=genQuestion(level);
+    qEl.textContent=current.text+' = ?';
+    const options=new Set([current.answer]);
+    let guard=0;
+    while(options.size<4 && guard<50){ options.add(current.answer + randInt(-10,10)*randInt(1,3)); guard++; }
+    const arr=shuffle([...options]);
+    optsEl.innerHTML='';
+    arr.forEach(v=>{
+      const btn=document.createElement('button');
+      btn.className='math-opt'; btn.textContent=v;
+      btn.onclick=()=>{
+        if(ended) return;
+        if(v===current.answer){
+          score++; scoreEl.textContent=score; btn.classList.add('correct');
+          if(score>=cfg.target){ end(true, `Solved it with ${timeLeft}s left!`); return; }
+          setTimeout(nextQuestion,250);
+        } else { btn.classList.add('wrong'); setTimeout(()=>btn.classList.remove('wrong'),400); }
+      };
+      optsEl.appendChild(btn);
+    });
+  }
+  nextQuestion();
+  const timer=setInterval(()=>{
+    timeLeft--; timerEl.textContent=timeLeft;
+    if(timeLeft<=0) end(score>=cfg.target, score>=cfg.target?'Level clear!':`Time's up — ${score}/${cfg.target}. Keep practicing!`);
+  },1000);
+  function end(success,message){ if(ended) return; ended=true; clearInterval(timer); finish(success,message); }
+  return ()=>{ clearInterval(timer); ended=true; };
+}
+
+/* ================= GAME 4: WORD SCRAMBLE ================= */
+const WORD_LISTS=[
+  ['cat','dog','sun','book','fish','frog','star','moon','tree','fire'],
+  ['garden','planet','yellow','pencil','castle','rocket','bridge','forest','wizard','cookie'],
+  ['elephant','mountain','sandwich','universe','birthday','notebook','dinosaur','umbrella','triangle','calendar'],
+  ['adventure','chocolate','butterfly','waterfall','telescope','xylophone','wonderful','beautiful','knowledge','marvelous'],
+  ['extraordinary','constellation','magnificent','unbelievable','philosophical','breathtaking','determination','sophisticated','revolutionary','independence']
+];
+function scrambleWord(word){
+  if(word.length<=1) return word;
+  let s;
+  do{ s=shuffle(word.split('')).join(''); }while(s===word);
+  return s;
+}
+function initWord(container, level, finish){
+  const words=shuffle(WORD_LISTS[level-1]).slice(0,5);
+  let idx=0, score=0;
+  container.innerHTML=`
+    <div class="game-hud"><div>Word <span id="ws-idx">1</span> / ${words.length}</div><div>Score: <span id="ws-score">0</span></div></div>
+    <div class="word-stage">
+      <div class="word-scrambled" id="ws-scrambled"></div>
+      <input id="ws-input" class="word-input" autocomplete="off" spellcheck="false" placeholder="Type your answer" />
+      <div class="word-actions">
+        <button id="ws-submit" class="btn-primary">Submit</button>
+        <button id="ws-hint" class="btn-ghost">Reveal a letter</button>
+      </div>
+      <div class="word-feedback" id="ws-feedback"></div>
+    </div>
+  `;
+  const scrEl=qs('#ws-scrambled', container), input=qs('#ws-input', container), feedback=qs('#ws-feedback', container);
+  const idxEl=qs('#ws-idx', container), scoreEl=qs('#ws-score', container);
+  function loadWord(){
+    scrEl.textContent=scrambleWord(words[idx]).toUpperCase();
+    input.value=''; feedback.textContent=''; feedback.className='word-feedback'; idxEl.textContent=idx+1;
+    input.focus();
+  }
+  function submit(){
+    const val=input.value.trim().toLowerCase();
+    if(!val) return;
+    if(val===words[idx]){
+      score++; scoreEl.textContent=score;
+      feedback.textContent='✅ Correct!'; feedback.className='word-feedback good';
+      idx++;
+      if(idx>=words.length){
+        const passNeeded=Math.ceil(words.length*0.8);
+        const pass=score>=passNeeded;
+        setTimeout(()=>finish(pass, pass?`Nailed it — ${score}/${words.length} correct!`:`${score}/${words.length} correct — need ${passNeeded} to pass. Try again!`),500);
+      } else setTimeout(loadWord,500);
+    } else {
+      feedback.textContent='❌ Not quite — try again!'; feedback.className='word-feedback bad';
+    }
+  }
+  qs('#ws-submit', container).onclick=submit;
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  qs('#ws-hint', container).onclick=()=>{
+    const w=words[idx]; const i=randInt(0,w.length-1);
+    feedback.textContent=`💡 Letter ${i+1} is "${w[i].toUpperCase()}"`;
+    feedback.className='word-feedback hint';
+  };
+  loadWord();
+  return null;
+}
+
+/* ================= GAME 5: SNAKE ================= */
+function initSnake(container, level, finish){
+  const configs=[
+    {speed:200,target:5,wallDeath:false,obstacles:0},
+    {speed:170,target:8,wallDeath:false,obstacles:0},
+    {speed:150,target:10,wallDeath:true,obstacles:0},
+    {speed:130,target:13,wallDeath:true,obstacles:2},
+    {speed:110,target:16,wallDeath:true,obstacles:4},
+  ];
+  const cfg=configs[level-1];
+  const cols=16, rows=16, cell=20;
+  container.innerHTML=`
+    <div class="game-hud"><div>🍎 <span id="sn-score">0</span> / ${cfg.target}</div><div>${cfg.wallDeath?'Walls are deadly':'Walls wrap around'}</div></div>
+    <div class="snake-wrap">
+      <canvas id="sn-canvas" width="${cols*cell}" height="${rows*cell}"></canvas>
+      <div class="snake-touch">
+        <button data-dir="up">▲</button>
+        <div class="snake-touch-row"><button data-dir="left">◀</button><button data-dir="right">▶</button></div>
+        <button data-dir="down">▼</button>
+      </div>
+    </div>
+  `;
+  const canvas=qs('#sn-canvas', container), ctx=canvas.getContext('2d'), scoreEl=qs('#sn-score', container);
+  let snake=[{x:8,y:8},{x:7,y:8},{x:6,y:8}];
+  let dir={x:1,y:0}, nextDir=dir, ended=false;
+
+  function placeFree(){
+    let p;
+    do{ p={x:randInt(0,cols-1),y:randInt(0,rows-1)}; }
+    while(snake.some(s=>s.x===p.x&&s.y===p.y));
+    return p;
+  }
+  let food=placeFree();
+  const obstacles=[];
+  for(let i=0;i<cfg.obstacles;i++){
+    let p; do{ p=placeFree(); }while(p.x===food.x&&p.y===food.y);
+    obstacles.push(p);
+  }
+  let score=0;
+
+  function draw(){
+    ctx.fillStyle='#1b1440'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#ff2e93'; ctx.fillRect(food.x*cell,food.y*cell,cell-1,cell-1);
+    ctx.fillStyle='#5a4fb0'; obstacles.forEach(o=>ctx.fillRect(o.x*cell,o.y*cell,cell-1,cell-1));
+    snake.forEach((s,i)=>{ ctx.fillStyle=i===0?'#5cff9d':'#3ee88a'; ctx.fillRect(s.x*cell,s.y*cell,cell-1,cell-1); });
+  }
+  function end(success,message){ if(ended) return; ended=true; clearInterval(loop); finish(success,message); }
+  function tick(){
+    if(ended) return;
+    dir=nextDir;
+    let head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+    if(cfg.wallDeath){
+      if(head.x<0||head.x>=cols||head.y<0||head.y>=rows) return end(false,'Crashed into a wall! Give it another go.');
+    } else {
+      head.x=(head.x+cols)%cols; head.y=(head.y+rows)%rows;
+    }
+    if(snake.some(s=>s.x===head.x&&s.y===head.y)) return end(false,'You ran into yourself! Try again.');
+    if(obstacles.some(o=>o.x===head.x&&o.y===head.y)) return end(false,'Hit an obstacle! Try again.');
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){
+      score++; scoreEl.textContent=score;
+      food=placeFree();
+      if(score>=cfg.target) return end(true, `Great run — ate ${score} apples!`);
+    } else snake.pop();
+    draw();
+  }
+  function setDir(x,y){ if(dir.x===-x&&dir.y===-y) return; nextDir={x,y}; }
+  function key(e){
+    const k=e.key.toLowerCase();
+    if(k==='arrowup'||k==='w'){ setDir(0,-1); e.preventDefault(); }
+    else if(k==='arrowdown'||k==='s'){ setDir(0,1); e.preventDefault(); }
+    else if(k==='arrowleft'||k==='a'){ setDir(-1,0); e.preventDefault(); }
+    else if(k==='arrowright'||k==='d'){ setDir(1,0); e.preventDefault(); }
+  }
+  document.addEventListener('keydown', key);
+  qsa('.snake-touch button', container).forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const d=btn.dataset.dir;
+      if(d==='up') setDir(0,-1); else if(d==='down') setDir(0,1); else if(d==='left') setDir(-1,0); else if(d==='right') setDir(1,0);
+    });
+  });
+  draw();
+  const loop=setInterval(tick, cfg.speed);
+  return ()=>{ ended=true; clearInterval(loop); document.removeEventListener('keydown', key); };
+}
+
+/* ================= GAME 6: REACTION TEST ================= */
+function initReaction(container, level, finish){
+  const thresholds=[500,420,350,280,220];
+  const target=thresholds[level-1];
+  const totalRounds=5;
+  let round=0, times=[], startTime=0, waiting=false, timeoutId=null, ended=false;
+  container.innerHTML=`
+    <div class="game-hud"><div>Round <span id="rx-round">1</span> / ${totalRounds}</div><div>Target avg: &lt;${target}ms</div></div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+      <button id="rx-pad" class="rx-pad rx-wait">Wait for green…</button>
+      <div class="word-feedback" id="rx-feedback"></div>
+    </div>
+  `;
+  const pad=qs('#rx-pad', container), roundEl=qs('#rx-round', container), feedback=qs('#rx-feedback', container);
+  function scheduleRound(){
+    waiting=false;
+    pad.className='rx-pad rx-wait'; pad.textContent='Wait for green…';
+    timeoutId=setTimeout(()=>{
+      if(ended) return;
+      waiting=true; startTime=performance.now();
+      pad.className='rx-pad rx-go'; pad.textContent='CLICK NOW!';
+    }, randInt(1000,3000));
+  }
+  pad.addEventListener('click', ()=>{
+    if(ended) return;
+    if(!waiting){
+      if(pad.classList.contains('rx-wait')){
+        clearTimeout(timeoutId);
+        feedback.textContent='Too soon! Wait for green.'; feedback.className='word-feedback bad';
+        scheduleRound();
+      }
+      return;
+    }
+    const rt=Math.round(performance.now()-startTime);
+    times.push(rt); waiting=false; round++;
+    roundEl.textContent=Math.min(round+1,totalRounds);
+    feedback.textContent=`${rt}ms`; feedback.className='word-feedback good';
+    if(round>=totalRounds){
+      const avg=Math.round(times.reduce((a,b)=>a+b,0)/times.length);
+      const pass=avg<=target;
+      ended=true;
+      finish(pass, `Average reaction: ${avg}ms (target under ${target}ms)`);
+    } else scheduleRound();
+  });
+  scheduleRound();
+  return ()=>{ ended=true; clearTimeout(timeoutId); };
+}
+
+/* ---------------- boot ---------------- */
+renderHub();
+</script>
+</body>
+</html>
